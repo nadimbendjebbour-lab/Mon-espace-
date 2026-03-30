@@ -156,9 +156,9 @@ for i, val in enumerate(example, start=1):
 
     # --- Colonne E : part cumulée des revenus (Lorenz) ---
     if i == 1:
-        e_formula = "=SOMME($A$5:A5)/SOMME($A$5:$A$14)*100"
+        e_formula = "=SUM($A$5:A5)/SUM($A$5:$A$14)*100"
     else:
-        e_formula = f"=SOMME($A$5:A{row})/SOMME($A$5:$A$14)*100"
+        e_formula = f"=SUM($A$5:A{row})/SUM($A$5:$A$14)*100"
     e = ws.cell(row=row, column=5, value=e_formula)
     style(e,
           fill=mk_fill(C_ORANGE2),
@@ -172,8 +172,8 @@ for i, val in enumerate(example, start=1):
 # ============================================================
 ws.row_dimensions[15].height = 20
 totals = [
-    (1, "=SOMME(A5:A14)",   "Revenu Total",     C_LGREY),
-    (3, "=SOMME(C5:C14)",   "= 100 %",          C_LGREY),
+    (1, "=SUM(A5:A14)",   "Revenu Total",     C_LGREY),
+    (3, "=SUM(C5:C14)",   "= 100 %",          C_LGREY),
     (4, "=D14",             "= 100 %",          C_LGREY),
     (5, "=E14",             "= 100 %",          C_LGREY),
 ]
@@ -220,10 +220,10 @@ style(ws['H5'],
       align=mk_align(h="center"))
 
 # ── 1. Revenu total ───────────────────────────────────────────────────────────
-result_row(ws, 6, "① Revenu Total :", "=SOMME(A5:A14)", C_DBLUE, C_LBLUE)
+result_row(ws, 6, "① Revenu Total :", "=SUM(A5:A14)", C_DBLUE, C_LBLUE)
 
 # ── 2. Revenu moyen ──────────────────────────────────────────────────────────
-result_row(ws, 7, "② Revenu Moyen :", "=SOMME(A5:A14)/10", C_DBLUE, C_LBLUE)
+result_row(ws, 7, "② Revenu Moyen :", "=SUM(A5:A14)/10", C_DBLUE, C_LBLUE)
 
 # ── 3. Revenu médian ─────────────────────────────────────────────────────────
 ws['H8'] = "③ Revenu Médian (interpolé) :"
@@ -276,7 +276,7 @@ seuil_cell.font = mk_font(bold=True, size=12, color=C_RED)
 # ── 6. Aire sous la courbe de Lorenz (trapèzes) ───────────────────────────────
 # Formule : A = 0,05 × (2×SOMME(E5:E13)/100 + E14/100)
 # = (1/2) × (1/10) × [y0 + 2×y1 + ... + 2×y9 + y10]  avec y0=0, y10=1
-aire_formula = "=0.05*(2*SOMME(E5:E13)/100+E14/100)"
+aire_formula = "=0.05*(2*SUM(E5:E13)/100+E14/100)"
 aire_cell = result_row(ws, 12, "⑥ Aire sous la courbe (trapèzes) :", aire_formula,
                        C_DBLUE, C_LBLUE, '0.0000')
 
