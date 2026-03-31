@@ -332,7 +332,7 @@ for i, row in enumerate(range(5, 15), start=1):
     ws.cell(row=row, column=13, value=i * 10)  # col M = 13
 
 chart = LineChart()
-chart.title = "Courbe de Lorenz"
+chart.title = "Courbe de Concentration"
 chart.style = 10
 chart.y_axis.title = "Part cumulée des revenus (%)"
 chart.x_axis.title = "Fréquence cumulée de la population (%)"
@@ -360,6 +360,17 @@ chart.series[1].graphicalProperties.line.width = 15000
 chart.series[1].graphicalProperties.line.dashDot = "dash"
 
 ws.add_chart(chart, "H17")
+
+# ============================================================
+# SIGNATURE (ligne 20)
+# ============================================================
+ws.row_dimensions[20].height = 24
+ws.merge_cells('A20:E20')
+ws['A20'] = "Réalisé par : Traore"
+style(ws['A20'],
+      fill=mk_fill(C_BLACK),
+      font=mk_font(bold=True, size=11, color=C_WHITE, italic=True),
+      align=mk_align(h="right"))
 
 # ============================================================
 # FREEZE et zoom
