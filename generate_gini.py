@@ -1,386 +1,272 @@
 """
-Générateur du tableau Excel - Calcul de l'indice de Gini par déciles
+Générateur Excel – Indice de Gini par déciles (xlsxwriter)
 """
-import openpyxl
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
-from openpyxl.chart import LineChart, Reference
-from openpyxl.chart.series import SeriesLabel
+import xlsxwriter
 
-wb = openpyxl.Workbook()
-ws = wb.active
-ws.title = "Indice de Gini"
+wb = xlsxwriter.Workbook("/home/user/Mon-espace-/TP_Indice_Gini_Deciles.xlsx")
+ws = wb.add_worksheet("Indice de Gini")
 
-# ── couleurs ──────────────────────────────────────────────────────────────────
-C_BLACK   = "00000000"
-C_WHITE   = "00FFFFFF"
-C_YELLOW  = "00FFFF00"
-C_GREEN   = "0092D050"
-C_LGREY   = "00D9D9D9"
-C_RED     = "00FF0000"
-C_SALMON  = "00FFCCCC"
-C_ORANGE  = "00FFCC99"
-C_DBLUE   = "001F3F6D"
-C_LBLUE   = "00BDD7EE"
-C_ORANGE2 = "00F4B942"
+# ── Formats ───────────────────────────────────────────────────────────────────
+def fmt(d):
+    return wb.add_format(d)
 
-def mk_fill(hex_color):
-    return PatternFill(start_color=hex_color, end_color=hex_color, fill_type="solid")
+# Couleurs
+BLK, WHT = "#000000", "#FFFFFF"
+YEL  = "#FFFF00"
+GRN  = "#92D050"
+LBLU = "#BDD7EE"
+DBL  = "#1F3F6D"
+ORG  = "#F4B942"
+LGR  = "#D9D9D9"
+SAL  = "#FFCCCC"
+RED  = "#C00000"
+DRD  = "#C00000"
 
-def mk_border(style="thin"):
-    s = Side(style=style)
-    return Border(left=s, right=s, top=s, bottom=s)
+base = {"font_name": "Aptos Narrow", "font_size": 11, "valign": "vcenter"}
 
-def mk_font(bold=False, size=11, color=C_BLACK, italic=False):
-    return Font(bold=bold, size=size, color=color, italic=italic)
+# En-têtes colonnes
+hdr = {**base, "bold": True, "font_size": 10, "bg_color": DBL,
+       "font_color": WHT, "align": "center", "border": 1, "text_wrap": True}
+# Cellule saisie (jaune)
+inp = {**base, "bg_color": YEL, "align": "center", "border": 1}
+# Fréquence cumulée (bleu clair)
+cum = {**base, "bg_color": LBLU, "align": "center", "border": 1,
+       "num_format": "0.00\"%\""}
+# Lorenz (orange)
+lrz = {**base, "bg_color": ORG, "align": "center", "border": 1,
+       "num_format": "0.00\"%\""}
+# Fréquence fixe
+frq = {**base, "align": "center", "border": 1, "num_format": "0.00\"%\""}
+# Décile
+dec = {**base, "align": "center", "border": 1}
+# Totaux
+tot = {**base, "bold": True, "bg_color": LGR, "align": "center",
+       "border": 1, "num_format": "# ##0.00"}
+tot_val = {**tot, "num_format": "# ##0.00"}
 
-def mk_align(h="center", v="center", wrap=False):
-    return Alignment(horizontal=h, vertical=v, wrap_text=wrap)
+# Résultats droite
+lbl_r = {**base, "bold": True, "font_size": 10, "bg_color": DBL,
+         "font_color": WHT, "align": "right", "border": 1}
+val_r = {**base, "bold": True, "font_size": 11, "bg_color": LBLU,
+         "align": "center", "border": 1, "num_format": "# ##0.00"}
+val_gini = {**base, "bold": True, "font_size": 14, "bg_color": SAL,
+            "font_color": DRD, "align": "center", "border": 1,
+            "num_format": "0.0000"}
+val_aire = {**base, "bold": True, "font_size": 11, "bg_color": LBLU,
+            "align": "center", "border": 1, "num_format": "0.0000"}
+val_seuil = {**base, "bold": True, "font_size": 12, "bg_color": SAL,
+             "font_color": RED, "align": "center", "border": 1,
+             "num_format": "# ##0.00"}
+inp_pct = {**base, "bold": True, "font_size": 12, "bg_color": YEL,
+           "align": "center", "border": 1, "num_format": "0\"%\""}
+pct_unit = {**base, "bold": True, "bg_color": GRN, "align": "center",
+            "border": 1}
 
-def style(cell, fill=None, font=None, align=None, border=None):
-    if fill:   cell.fill   = fill
-    if font:   cell.font   = font
-    if align:  cell.alignment = align
-    if border: cell.border  = border
+# Titre bloc résultats
+ttl_r = {**base, "bold": True, "font_size": 12, "bg_color": BLK,
+         "font_color": WHT, "align": "center", "border": 1}
+# Titre principal
+ttl_main = {**base, "bold": True, "font_size": 13, "bg_color": BLK,
+            "font_color": WHT, "align": "center", "valign": "vcenter"}
+# Instructions
+instr = {**base, "font_size": 10, "italic": True, "bg_color": GRN,
+         "align": "left", "valign": "vcenter"}
+# Note
+note = {**base, "font_size": 9, "italic": True, "align": "left",
+        "valign": "vcenter", "text_wrap": True}
+# Signature
+sign = {**base, "bold": True, "font_size": 11, "italic": True,
+        "bg_color": BLK, "font_color": WHT, "align": "right",
+        "valign": "vcenter"}
+# Interprétation
+interp = {**base, "font_size": 9, "italic": True, "bg_color": LGR,
+          "align": "left", "valign": "vcenter", "text_wrap": True,
+          "border": 1}
 
-# ── largeurs de colonnes ──────────────────────────────────────────────────────
-ws.column_dimensions['A'].width = 16
-ws.column_dimensions['B'].width = 10
-ws.column_dimensions['C'].width = 14
-ws.column_dimensions['D'].width = 18
-ws.column_dimensions['E'].width = 22
-ws.column_dimensions['F'].width = 2   # séparateur visuel
-ws.column_dimensions['G'].width = 2
-ws.column_dimensions['H'].width = 14
-ws.column_dimensions['I'].width = 4
-ws.column_dimensions['J'].width = 18
-ws.column_dimensions['K'].width = 18
-ws.column_dimensions['L'].width = 18
-ws.column_dimensions['M'].width = 14
+# ── Dimensions ────────────────────────────────────────────────────────────────
+ws.set_column("A:A", 16)
+ws.set_column("B:B", 10)
+ws.set_column("C:C", 14)
+ws.set_column("D:D", 18)
+ws.set_column("E:E", 22)
+ws.set_column("F:G", 2)
+ws.set_column("H:I", 22)
+ws.set_column("J:K", 14)
 
-# hauteurs de lignes
-for r in range(1, 40):
-    ws.row_dimensions[r].height = 18
-ws.row_dimensions[1].height = 30
-ws.row_dimensions[2].height = 22
-ws.row_dimensions[3].height = 22
-ws.row_dimensions[13].height = 22  # ligne totaux
+ws.set_row(0,  30)   # ligne 1
+ws.set_row(1,  22)   # ligne 2
+ws.set_row(2,  22)   # ligne 3
+ws.set_row(3,  36)   # ligne 4 (en-têtes)
+for r in range(4, 20):
+    ws.set_row(r, 18)
+ws.set_row(10, 8)    # séparateur
+ws.set_row(14, 20)   # totaux
+ws.set_row(16, 28)   # note 1
+ws.set_row(17, 28)   # note 2
+ws.set_row(19, 24)   # signature
 
-# ============================================================
-# BLOC TITRE (E1:M3)
-# ============================================================
-ws.merge_cells('E1:M1')
-ws['E1'] = "Calcul de l'indice de Gini par la formule des Trapèzes"
-style(ws['E1'],
-      fill=mk_fill(C_BLACK),
-      font=mk_font(bold=True, size=13, color=C_WHITE),
-      align=mk_align(h="center"))
+# ── Titre principal (E1:K1) ──────────────────────────────────────────────────
+ws.merge_range("E1:K1",
+    "Calcul de l'indice de Gini par la formule des Trapèzes",
+    fmt(ttl_main))
 
-ws.merge_cells('E2:M2')
-ws['E2'] = "  ➜  Saisir les valeurs par déciles dans la partie jaune – Colonne A (revenus moyens par décile, triés croissants)."
-style(ws['E2'],
-      fill=mk_fill(C_GREEN),
-      font=mk_font(size=10, italic=True),
-      align=mk_align(h="left"))
+ws.merge_range("E2:K2",
+    "  \u279c  Saisir les valeurs par déciles dans la partie jaune – "
+    "Colonne A (revenus moyens par décile, triés croissants).",
+    fmt(instr))
 
-ws.merge_cells('E3:M3')
-ws['E3'] = "  ➜  Saisir le pourcentage conventionnel du seuil de pauvreté (cellule jaune J27 – défaut : 60 %)."
-style(ws['E3'],
-      fill=mk_fill(C_GREEN),
-      font=mk_font(size=10, italic=True),
-      align=mk_align(h="left"))
+ws.merge_range("E3:K3",
+    "  \u279c  Saisir le pourcentage conventionnel du seuil de pauvreté "
+    "(cellule jaune J9 – défaut : 60 %).",
+    fmt(instr))
 
-# ============================================================
-# EN-TÊTES DE COLONNES (ligne 4)
-# ============================================================
-headers = [
-    (1, "Valeurs\n(revenu moyen)"),
-    (2, "N° Décile"),
-    (3, "Fréquence\n(%)"),
-    (4, "Fréquence Cumulée\nCroissante (%)"),
-    (5, "Part Cumulée\ndes Revenus – Lorenz (%)"),
-]
-for col, label in headers:
-    c = ws.cell(row=4, column=col, value=label)
-    style(c,
-          fill=mk_fill(C_DBLUE),
-          font=mk_font(bold=True, size=10, color=C_WHITE),
-          align=mk_align(h="center", wrap=True),
-          border=mk_border())
-ws.row_dimensions[4].height = 36
+# ── En-têtes colonnes (ligne 4 = index 3) ────────────────────────────────────
+ws.write(3, 0, "Valeurs\n(revenu moyen)",            fmt(hdr))
+ws.write(3, 1, "N° Décile",                          fmt(hdr))
+ws.write(3, 2, "Fréquence\n(%)",                     fmt(hdr))
+ws.write(3, 3, "Fréquence Cumulée\nCroissante (%)",  fmt(hdr))
+ws.write(3, 4, "Part Cumulée\ndes Revenus – Lorenz (%)", fmt(hdr))
 
-# ============================================================
-# DONNÉES : lignes 5 à 14  (déciles 1 à 10)
-# ============================================================
-# Valeurs d'exemple (remplaçables par l'utilisateur)
+# ── Données exemples (déciles 1-10) ──────────────────────────────────────────
 example = [520, 870, 1150, 1450, 1780, 2200, 2750, 3400, 4350, 7200]
 
-for i, val in enumerate(example, start=1):
-    row = 4 + i   # row 5..14
+for i, val in enumerate(example):
+    r = 4 + i        # lignes 5-14 (index 4-13)
 
-    # --- Colonne A : valeurs (saisie, fond jaune) ---
-    a = ws.cell(row=row, column=1, value=val)
-    style(a,
-          fill=mk_fill(C_YELLOW),
-          font=mk_font(size=11),
-          align=mk_align(),
-          border=mk_border())
+    # Col A : valeur saisie (jaune)
+    ws.write(r, 0, val, fmt(inp))
 
-    # --- Colonne B : n° décile ---
-    b = ws.cell(row=row, column=2, value=i)
-    style(b,
-          font=mk_font(size=11),
-          align=mk_align(),
-          border=mk_border())
+    # Col B : n° décile
+    ws.write(r, 1, i + 1, fmt(dec))
 
-    # --- Colonne C : fréquence (chaque décile = 10 %) ---
-    c = ws.cell(row=row, column=3, value=10)
-    style(c,
-          font=mk_font(size=11),
-          align=mk_align(),
-          border=mk_border())
-    c.number_format = '0.00"%"'
+    # Col C : fréquence fixe 10 %
+    ws.write(r, 2, 10, fmt(frq))
 
-    # --- Colonne D : fréquence cumulée croissante ---
-    if i == 1:
-        d_formula = "=C5"
+    # Col D : fréquence cumulée croissante
+    if i == 0:
+        ws.write_formula(r, 3, "=C5", fmt(cum))
     else:
-        d_formula = f"=D{row-1}+C{row}"
-    d = ws.cell(row=row, column=4, value=d_formula)
-    style(d,
-          fill=mk_fill(C_LBLUE),
-          font=mk_font(size=11),
-          align=mk_align(),
-          border=mk_border())
-    d.number_format = '0.00"%"'
+        ws.write_formula(r, 3, f"=D{r}+C{r+1}", fmt(cum))
 
-    # --- Colonne E : part cumulée des revenus (Lorenz) ---
-    if i == 1:
-        e_formula = "=SUM($A$5:A5)/SUM($A$5:$A$14)*100"
-    else:
-        e_formula = f"=SUM($A$5:A{row})/SUM($A$5:$A$14)*100"
-    e = ws.cell(row=row, column=5, value=e_formula)
-    style(e,
-          fill=mk_fill(C_ORANGE2),
-          font=mk_font(size=11),
-          align=mk_align(),
-          border=mk_border())
-    e.number_format = '0.00"%"'
+    # Col E : part cumulée des revenus (Lorenz)
+    ws.write_formula(r, 4,
+        f"=SUM($A$5:A{r+1})/SUM($A$5:$A$14)*100",
+        fmt(lrz))
 
-# ============================================================
-# LIGNE TOTAUX / VÉRIFICATION (ligne 15)
-# ============================================================
-ws.row_dimensions[15].height = 20
-totals = [
-    (1, "=SUM(A5:A14)",   "Revenu Total",     C_LGREY),
-    (3, "=SUM(C5:C14)",   "= 100 %",          C_LGREY),
-    (4, "=D14",             "= 100 %",          C_LGREY),
-    (5, "=E14",             "= 100 %",          C_LGREY),
-]
-ws.cell(row=15, column=1, value="← TOTAUX").font = mk_font(bold=True)
-for col, formula, tip, fill_color in totals:
-    c = ws.cell(row=15, column=col, value=formula)
-    style(c,
-          fill=mk_fill(fill_color),
-          font=mk_font(bold=True, size=11),
-          align=mk_align(),
-          border=mk_border())
-    c.number_format = '# ##0.00'
+# ── Ligne totaux (ligne 15, index 14) ────────────────────────────────────────
+ws.write(14, 0, "=SUM(A5:A14)",  fmt(tot_val))
+ws.write(14, 2, "=SUM(C5:C14)", fmt(tot))
+ws.write(14, 3, "=D14",          fmt(tot))
+ws.write(14, 4, "=E14",          fmt(tot))
 
-# ============================================================
-# BLOC CALCULS RÉSULTATS (colonne H-M, lignes 6-30)
-# ============================================================
+# ── Bloc résultats (colonnes H-K) ────────────────────────────────────────────
+# Titre
+ws.merge_range("H5:K5", "RÉSULTATS AUTOMATIQUES", fmt(ttl_r))
 
-def result_row(ws, row, label, formula, label_fill, value_fill, number_format='# ##0.00'):
-    """Pose un label (H) et une valeur calculée (J:K)."""
-    lc = ws.cell(row=row, column=8, value=label)
-    style(lc,
-          fill=mk_fill(label_fill),
-          font=mk_font(bold=True, size=10),
-          align=mk_align(h="right"),
-          border=mk_border())
-    ws.merge_cells(start_row=row, start_column=8, end_row=row, end_column=9)
+# ① Revenu total
+ws.merge_range("H6:I6", "\u2460 Revenu Total :", fmt(lbl_r))
+ws.merge_range("J6:K6", "=SUM(A5:A14)",          fmt(val_r))
 
-    vc = ws.cell(row=row, column=10, value=formula)
-    style(vc,
-          fill=mk_fill(value_fill),
-          font=mk_font(bold=True, size=11),
-          align=mk_align(),
-          border=mk_border())
-    ws.merge_cells(start_row=row, start_column=10, end_row=row, end_column=11)
-    vc.number_format = number_format
-    return vc
+# ② Revenu moyen
+ws.merge_range("H7:I7", "\u2461 Revenu Moyen :", fmt(lbl_r))
+ws.merge_range("J7:K7", "=SUM(A5:A14)/10",       fmt(val_r))
 
-# ── Titre bloc résultats ──────────────────────────────────────────────────────
-ws.merge_cells('H5:K5')
-ws['H5'] = "RÉSULTATS AUTOMATIQUES"
-style(ws['H5'],
-      fill=mk_fill(C_BLACK),
-      font=mk_font(bold=True, size=12, color=C_WHITE),
-      align=mk_align(h="center"))
+# ③ Revenu médian
+ws.merge_range("H8:I8", "\u2462 Revenu Médian :", fmt(lbl_r))
+ws.merge_range("J8:K8", "=(A9+A10)/2",            fmt(val_r))
 
-# ── 1. Revenu total ───────────────────────────────────────────────────────────
-result_row(ws, 6, "① Revenu Total :", "=SUM(A5:A14)", C_DBLUE, C_LBLUE)
+# ④ % seuil de pauvreté (saisie jaune)
+ws.merge_range("H9:I9",
+    "\u2463 % seuil de pauvreté :", fmt(lbl_r))
+ws.write("J9", 60, fmt(inp_pct))
+ws.write("K9", "%", fmt(pct_unit))
 
-# ── 2. Revenu moyen ──────────────────────────────────────────────────────────
-result_row(ws, 7, "② Revenu Moyen :", "=SUM(A5:A14)/10", C_DBLUE, C_LBLUE)
+# ⑤ Seuil de pauvreté
+ws.merge_range("H10:I10", "\u2464 SEUIL de PAUVRETÉ :", fmt(lbl_r))
+ws.merge_range("J10:K10", "=J8*J9/100",               fmt(val_seuil))
 
-# ── 3. Revenu médian ─────────────────────────────────────────────────────────
-ws['H8'] = "③ Revenu Médian (interpolé) :"
-style(ws['H8'],
-      fill=mk_fill(C_DBLUE),
-      font=mk_font(bold=True, size=10, color=C_WHITE),
-      align=mk_align(h="right"),
-      border=mk_border())
-ws.merge_cells('H8:I8')
-# Interpolation : D5 = 50 %, donc entre décile 5 et 6 → médian = (A9+A10)/2
-median_cell = ws.cell(row=8, column=10, value="=(A9+A10)/2")
-style(median_cell,
-      fill=mk_fill(C_LBLUE),
-      font=mk_font(bold=True, size=11),
-      align=mk_align(),
-      border=mk_border())
-ws.merge_cells('J8:K8')
-median_cell.number_format = '# ##0.00'
+# (séparateur : ligne 11 = index 10, hauteur 8 déjà fixée)
 
-# ── 4. % seuil de pauvreté (cellule saisie) ──────────────────────────────────
-ws['H9'] = "④ % conventionnel du seuil de pauvreté :"
-style(ws['H9'],
-      fill=mk_fill(C_DBLUE),
-      font=mk_font(bold=True, size=10, color=C_WHITE),
-      align=mk_align(h="right"),
-      border=mk_border())
-ws.merge_cells('H9:I9')
+# ⑥ Aire sous la courbe
+ws.merge_range("H12:I12",
+    "\u2465 Aire sous la courbe (trapèzes) :", fmt(lbl_r))
+ws.merge_range("J12:K12",
+    "=0.05*(2*SUM(E5:E13)/100+E14/100)", fmt(val_aire))
 
-pct_cell = ws.cell(row=9, column=10, value=60)
-style(pct_cell,
-      fill=mk_fill(C_YELLOW),
-      font=mk_font(bold=True, size=12),
-      align=mk_align(),
-      border=mk_border())
-pct_cell.number_format = '0 "%"'
+# ⑦ Indice de Gini
+ws.merge_range("H13:I13", "\u2466 INDICE de GINI :", fmt(lbl_r))
+ws.merge_range("J13:K13", "=1-2*J12",               fmt(val_gini))
 
-unit_cell = ws.cell(row=9, column=11, value="%")
-style(unit_cell,
-      fill=mk_fill(C_GREEN),
-      font=mk_font(bold=True, size=11),
-      align=mk_align(),
-      border=mk_border())
+# Interprétation
+ws.merge_range("H14:K15",
+    "Gini = 0  \u2192  Égalité parfaite\n"
+    "Gini = 1  \u2192  Inégalité maximale\n"
+    "Gini > 0,35  \u2192  Forte inégalité",
+    fmt(interp))
 
-# ── 5. Seuil de pauvreté ─────────────────────────────────────────────────────
-# Cellule J9 = % (ex: 60), J8 = médian  →  seuil = médian × J9/100
-seuil_cell = result_row(ws, 10, "⑤ SEUIL de PAUVRETÉ :", "=J8*J9/100",
-                        C_RED, C_SALMON)
-seuil_cell.font = mk_font(bold=True, size=12, color=C_RED)
+# ── Notes méthodologiques (lignes 17-18, index 16-17) ─────────────────────────
+ws.merge_range("A17:E17",
+    "Méthode : un point de la courbe de Lorenz a pour abscisse n/10 "
+    "(n = numéro de décile, de 0 à 10) et pour ordonnée la part "
+    "cumulée des revenus correspondante.", fmt(note))
 
-# ── 6. Aire sous la courbe de Lorenz (trapèzes) ───────────────────────────────
-# Formule : A = 0,05 × (2×SOMME(E5:E13)/100 + E14/100)
-# = (1/2) × (1/10) × [y0 + 2×y1 + ... + 2×y9 + y10]  avec y0=0, y10=1
-aire_formula = "=0.05*(2*SUM(E5:E13)/100+E14/100)"
-aire_cell = result_row(ws, 12, "⑥ Aire sous la courbe (trapèzes) :", aire_formula,
-                       C_DBLUE, C_LBLUE, '0.0000')
+ws.merge_range("A18:E18",
+    "Formule des trapèzes : Aire ≈ (h/2) × [y\u2080 + 2y\u2081 + … "
+    "+ 2y\u2089 + y\u2081\u2080]  avec h = 0,1 ;  y\u2080 = 0 ;  "
+    "y\u2081…y\u2081\u2080 = colonne E ;  Gini = 1 \u2212 2 \u00d7 Aire",
+    fmt(note))
 
-# ── 7. Indice de Gini ─────────────────────────────────────────────────────────
-gini_formula = "=1-2*J12"
-gini_cell = result_row(ws, 13, "⑦ INDICE de GINI :", gini_formula,
-                       "00C00000", C_SALMON, '0.0000')
-gini_cell.font = mk_font(bold=True, size=14, color="00C00000")
+# ── Signature (ligne 20, index 19) ───────────────────────────────────────────
+ws.merge_range("A20:E20", "Réalisé par : Traore", fmt(sign))
 
-# ── Ligne vide séparatrice ────────────────────────────────────────────────────
-ws.row_dimensions[11].height = 8
+# ── Graphique – Courbe de Concentration ──────────────────────────────────────
+chart = wb.add_chart({"type": "line"})
+chart.set_title({"name": "Courbe de Concentration"})
+chart.set_x_axis({
+    "name": "Fréquence cumulée de la population (%)",
+    "min": 0, "max": 100,
+    "major_gridlines": {"visible": True,
+                        "line": {"color": "#D9D9D9", "dash_type": "solid"}},
+})
+chart.set_y_axis({
+    "name": "Part cumulée des revenus (%)",
+    "min": 0, "max": 100,
+    "major_gridlines": {"visible": True,
+                        "line": {"color": "#D9D9D9", "dash_type": "solid"}},
+})
+chart.set_legend({"position": "bottom"})
+chart.set_size({"width": 480, "height": 300})
 
-# ── Interprétation ───────────────────────────────────────────────────────────
-ws.merge_cells('H14:K15')
-ws['H14'] = ('Gini = 0 → Égalité parfaite\n'
-             'Gini = 1 → Inégalité maximale\n'
-             'Gini > 0,35 → Forte inégalité')
-style(ws['H14'],
-      fill=mk_fill(C_LGREY),
-      font=mk_font(size=9, italic=True),
-      align=mk_align(h="left", wrap=True))
+# Série Lorenz (courbe de concentration)
+chart.add_series({
+    "name":       "Courbe de Lorenz",
+    "categories": ["Indice de Gini", 4, 3, 13, 3],   # D5:D14
+    "values":     ["Indice de Gini", 4, 4, 13, 4],   # E5:E14
+    "line":       {"color": "#0070C0", "width": 2.25},
+    "marker":     {"type": "circle", "size": 4,
+                   "border": {"color": "#0070C0"},
+                   "fill":   {"color": "#0070C0"}},
+})
 
-# ============================================================
-# NOTE MÉTHODOLOGIQUE (en bas, ligne 18+)
-# ============================================================
-ws.merge_cells('A17:E17')
-ws['A17'] = ("Méthode : un point de la courbe de Lorenz a pour abscisse n/10 "
-             "(n = numéro de décile, de 0 à 10) et pour ordonnée la part cumulée des revenus correspondante.")
-style(ws['A17'],
-      font=mk_font(size=9, italic=True),
-      align=mk_align(h="left", wrap=True))
-ws.row_dimensions[17].height = 28
+# Diagonale (égalité parfaite) – points 0,0 et 100,100
+# On utilise une petite table en col M (index 12) hors vue
+ws.write(4,  12, 0)
+ws.write(14, 12, 100)
+ws.write(4,  13, 0)
+ws.write(14, 13, 100)
 
-ws.merge_cells('A18:E18')
-ws['A18'] = ("Formule des trapèzes : Aire ≈ (h/2) × [y₀ + 2y₁ + … + 2y₉ + y₁₀]  "
-             "avec h = 0,1 ;  y₀ = 0 ;  y₁…y₁₀ = colonne E (Lorenz) ;  Gini = 1 − 2 × Aire")
-style(ws['A18'],
-      font=mk_font(size=9, italic=True),
-      align=mk_align(h="left", wrap=True))
-ws.row_dimensions[18].height = 28
+chart.add_series({
+    "name":       "Égalité parfaite",
+    "categories": ["Indice de Gini", 4, 12, 14, 12],   # M5,M15
+    "values":     ["Indice de Gini", 4, 13, 14, 13],   # N5,N15
+    "line":       {"color": "#FF0000", "width": 1.5,
+                   "dash_type": "dash"},
+})
 
-# ============================================================
-# GRAPHIQUE – Courbe de Lorenz + droite d'équirépartition
-# ============================================================
+ws.insert_chart("H17", chart, {"x_offset": 0, "y_offset": 5})
 
-# Données pour le graphique :
-# x-axis  : D5:D14 (fréquences cumulées pop. 10..100)
-# Lorenz  : E5:E14
-# Équirép : on ajoute une série linéaire 10..100 dans une zone helper
+# ── Figer les volets ──────────────────────────────────────────────────────────
+ws.freeze_panes(4, 0)
 
-# Zone helper pour la diagonale (col M, lignes 5-14) : 10,20,...,100
-for i, row in enumerate(range(5, 15), start=1):
-    ws.cell(row=row, column=13, value=i * 10)  # col M = 13
-
-chart = LineChart()
-chart.title = "Courbe de Concentration"
-chart.style = 10
-chart.y_axis.title = "Part cumulée des revenus (%)"
-chart.x_axis.title = "Fréquence cumulée de la population (%)"
-chart.y_axis.numFmt = '0'
-chart.x_axis.numFmt = '0'
-chart.y_axis.scaling.min = 0
-chart.y_axis.scaling.max = 100
-chart.height = 14
-chart.width  = 22
-
-# Série Lorenz
-lorenz_data = Reference(ws, min_col=5, min_row=4, max_row=14)  # avec titre
-lorenz_cats = Reference(ws, min_col=4, min_row=5, max_row=14)
-chart.add_data(lorenz_data, titles_from_data=True)
-chart.set_categories(lorenz_cats)
-chart.series[0].graphicalProperties.line.solidFill  = "0000B0F0"
-chart.series[0].graphicalProperties.line.width = 20000
-
-# Série diagonale (égalité parfaite)
-diag_data = Reference(ws, min_col=13, min_row=5, max_row=14)
-chart.add_data(diag_data)
-chart.series[1].title = SeriesLabel(v="Égalité parfaite")
-chart.series[1].graphicalProperties.line.solidFill = "00FF0000"
-chart.series[1].graphicalProperties.line.width = 15000
-chart.series[1].graphicalProperties.line.dashDot = "dash"
-
-ws.add_chart(chart, "H17")
-
-# ============================================================
-# SIGNATURE (ligne 20)
-# ============================================================
-ws.row_dimensions[20].height = 24
-ws.merge_cells('A20:E20')
-ws['A20'] = "Réalisé par : Traore"
-style(ws['A20'],
-      fill=mk_fill(C_BLACK),
-      font=mk_font(bold=True, size=11, color=C_WHITE, italic=True),
-      align=mk_align(h="right"))
-
-# ============================================================
-# FREEZE et zoom
-# ============================================================
-ws.freeze_panes = "A5"
-ws.sheet_view.zoomScale = 90
-
-# ============================================================
-# SAUVEGARDE
-# ============================================================
-output_path = "/home/user/Mon-espace-/TP_Indice_Gini_Deciles.xlsx"
-wb.save(output_path)
-print(f"✅  Fichier généré : {output_path}")
+wb.close()
+print("✅  Fichier généré : /home/user/Mon-espace-/TP_Indice_Gini_Deciles.xlsx")
