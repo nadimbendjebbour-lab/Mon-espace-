@@ -17,23 +17,19 @@ library(arrow)
 dataF <- read_parquet("donnee_femme.parquet")
 load("donnee_homme.rdata")
 
-# OPTIMISATION 1 : Étapes 3+4 fusionnées
-# L'ajout du Sexe se fait directement dans bind_rows(),
-# sans avoir à réassigner dataF et donnee_homme séparément
+# 3+4 - Ajout variable sexe et fusion des bases en une seule étape
 data_all <- bind_rows(
   dataF        %>% mutate(Sexe = "F"),
   donnee_homme %>% mutate(Sexe = "H")
 )
 
-# OPTIMISATION 2 : Étapes 5 à 14 regroupées en un seul pipeline
-# Dans dplyr, un mutate() évalue les colonnes dans l'ordre :
-# on peut donc utiliser une colonne créée plus haut dans le même mutate()
-# Ex : Mois_compet créé → utilisé pour Saison dans le même mutate()
-# Ex : Age_FFA créé → utilisé pour Categorie_age dans le même mutate()
-# Ex : Type_epreuve créé → utilisé pour Performance_propre dans le même mutate()
+# 5 à 14 - Nettoyage, enrichissement et filtrage
+# Note : dans dplyr, mutate() évalue les colonnes dans l'ordre —
+# une variable créée plus haut dans le même mutate() peut être réutilisée
+# (ex : Mois_compet → Saison, Age_FFA → Categorie_age, Type_epreuve → Performance_propre)
 data_all <- data_all %>%
 
-  # OPTIMISATION 2a : Étapes 5+6+7+8 fusionnées en un seul mutate()
+  # 5+6+7+8 - Correction encodage, conversion dates, variables temporelles, âge relatif
   mutate(
     Perf        = as.numeric(gsub(",", ".", as.character(Perf))),
     Date_naiss  = ymd(Date_naiss),
@@ -44,19 +40,17 @@ data_all <- data_all %>%
     Age_relatif = time_length(interval(Date_naiss, Date_compet), "years")
   ) %>%
 
-  # Étape 9 - Suppression des âges incohérents (inchangée, chainée)
+  # 9 - Suppression des âges incohérents (négatif ou > 100 ans)
   filter(Age_relatif >= 0 & Age_relatif <= 100) %>%
 
-  # OPTIMISATION 2b : Étapes 10+11+12+13 fusionnées en un seul mutate()
+  # 10+11+12+13 - Trimestre, catégorie FFA, type épreuve, performance propre
   mutate(
-    # Trimestre de naissance (factor ordonné)
     Trimestre_naiss = factor(
       quarter(Date_naiss),
       levels  = c(1, 2, 3, 4),
       labels  = c("Q1", "Q2", "Q3", "Q4"),
       ordered = TRUE
     ),
-    # Catégorie d'âge FFA — Age_FFA est créé et utilisé dans le même mutate()
     Age_FFA = Saison - Annee_naiss,
     Categorie_age = factor(
       case_when(
@@ -76,7 +70,6 @@ data_all <- data_all %>%
                   "U20 / Juniors", "U23 / Espoirs", "Seniors", "Masters"),
       ordered = TRUE
     ),
-    # Type d'épreuve — créé et utilisé pour Performance_propre dans le même mutate()
     Type_epreuve = case_when(
       Discipline %in% c("disque", "javelot", "marteau",
                         "longueur", "triple saut",
@@ -90,7 +83,7 @@ data_all <- data_all %>%
     )
   ) %>%
 
-  # OPTIMISATION 2c : Étape 14 — les 2 filter() fusionnés en 1 seul
+  # 14 - Filtre de cohérence des performances
   filter(
     !is.na(Performance_propre) &
     ((Type_epreuve == "Distance" & Performance_propre > 0) |
@@ -98,7 +91,7 @@ data_all <- data_all %>%
   )
 
 # 15 - Suppression des valeurs aberrantes par méthode IQR
-# Cette étape reste séparée : le group_by impose une structure distincte
+# Groupé par Discipline ET Categorie_age — double groupement indispensable
 n_avant <- nrow(data_all)
 
 data_all <- data_all %>%
